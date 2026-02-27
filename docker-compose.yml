@@ -1,29 +1,58 @@
-version: "3.5"
 services:
   mariadb:
-    image: mariadb
+    image: mariadb:11.4
+    container_name: ${MARIADB_CONTAINER:-chamilo2-mariadb}
     environment:
-      - MYSQL_ROOT_PASSWORD=pass
-      - MYSQL_USER=chamilo
-      - MYSQL_PASSWORD=chamilo
-      - MYSQL_DATABASE=chamilo
-    labels:
-      "project.id": "docker.compose.mariadb"
-      "project.github.url": "https://github.com/22phuber/docker-compose-chamilo-lms"
-  chamilo_php7:
-    build:
-      context: ./chamilo-php7
-      target: php7_apache_chamilo_lms
-      args:
-        - PHP_VERSION=7.4.33
-        - CHAMILO_VERSION=1.11.26
-        - CHAMILO_TAR=chamilo-1.11.26.tar.gz
-    links:
-      - mariadb
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-root}
+      - MYSQL_USER=${MYSQL_USER:-chamilo2}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-chamilo2}
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-chamilo2}
+      - MYSQL_INITDB_SKIP_TZINFO=yes
+    volumes:
+      - ${MARIADB_DATA_PATH:-./data/mariadb}:/var/lib/mysql
+      - ./mariadb-init:/docker-entrypoint-initdb.d
     ports:
-      - "8080:80"
+      - "${MARIADB_PORT:-3306}:3306"
+    healthcheck:
+      test: [ "CMD", "healthcheck.sh", "--connect", "--innodb_initialized" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    labels:
+      "project.id": "docker.compose.chamilo2-mariadb"
+      "project.github.url": "https://github.com/webstone/docker-compose-chamilo-lms"
+    networks:
+      - chamilo2_network
+
+  chamilo:
+    build:
+      context: ./chamilo2-php8
+      target: php8_apache_chamilo2
+      args:
+        - PHP_VERSION=${PHP_VERSION:-8.2.30}
+        - CHAMILO_VERSION=${CHAMILO_VERSION:-2.0.0-RC.1}
+    image: ${DOCKER_IMAGE_NAME:-chamilo2-php8:latest}
+    container_name: ${CHAMILO_CONTAINER:-chamilo2-php8}
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    volumes:
+      - ${CHAMILO_ROOT_PATH:-./data/chamilo}:/var/www/chamilo
+    ports:
+      - "${CHAMILO_PORT:-8080}:80"
     extra_hosts:
       - "docker.chamilo.net:127.0.0.1"
+    environment:
+      - APP_ENV=${APP_ENV:-dev}
+      - APP_DEBUG=${APP_DEBUG:-1}
+      - DATABASE_URL=mysql://${MYSQL_USER:-chamilo2}:${MYSQL_PASSWORD:-chamilo2}@mariadb:3306/${MYSQL_DATABASE:-chamilo2}
     labels:
-      "project.id": "docker.compose.chamilo_lms"
-      "project.github.url": "https://github.com/22phuber/docker-compose-chamilo-lms"
+      "project.id": "docker.compose.chamilo2-php8"
+      "project.github.url": "https://github.com/chamilo/chamilo-lms"
+    networks:
+      - chamilo2_network
+
+networks:
+  chamilo2_network:
+    driver: bridge
+    name: ${DOCKER_NETWORK:-chamilo2-network}
