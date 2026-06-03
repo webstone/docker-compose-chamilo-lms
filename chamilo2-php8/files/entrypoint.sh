@@ -46,6 +46,10 @@ DirectoryIndex index.html
 EOF
 fi
 
+# Ensure session storage directory exists (framework.yaml points sessions here
+# to avoid the root-owned /var/lib/php/sessions GC permission error).
+mkdir -p /var/www/chamilo/var/sessions
+
 # Fix permissions on mounted volumes for development
 # Step 1: Change group to www-data (keep owner unchanged)
 chgrp -R www-data /var/www/chamilo/config 2>/dev/null || true
