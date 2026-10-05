@@ -55,6 +55,16 @@ RUN pecl install apcu redis && \
 # Increase PHP memory limit for build / cache
 RUN echo 'memory_limit = 512M' >> /usr/local/etc/php/conf.d/docker-php-memlimit.ini
 
+# Match PHP's default timezone to the platform's actual timezone. Without
+# this, date.timezone falls back to the image's compiled-in default (UTC),
+# which only gets corrected for legacy (non-API-Platform) requests via
+# public/main/inc/lib/internationalization.lib.php's date_default_timezone_set()
+# call - the modern API Platform layer (src/CoreBundle) never calls that, so
+# any naive Doctrine `datetime` column round-tripped through the API
+# (Session::$accessStartDate, calendar events, etc.) gets silently
+# misinterpreted as UTC instead of Europe/Brussels.
+RUN echo 'date.timezone = Europe/Brussels' >> /usr/local/etc/php/conf.d/docker-php-timezone.ini
+
 # Enable Apache modules
 RUN a2enmod rewrite headers remoteip
 
