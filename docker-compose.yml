@@ -18,6 +18,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
     labels:
       "project.id": "docker.compose.chamilo2-mariadb"
       "project.github.url": "https://github.com/webstone/docker-compose-chamilo-lms"
@@ -46,6 +47,7 @@ services:
       - APP_ENV=${APP_ENV:-dev}
       - APP_DEBUG=${APP_DEBUG:-1}
       - DATABASE_URL=mysql://${MYSQL_USER:-chamilo2}:${MYSQL_PASSWORD:-chamilo2}@mariadb:3306/${MYSQL_DATABASE:-chamilo2}
+    restart: unless-stopped
     labels:
       "project.id": "docker.compose.chamilo2-php8"
       "project.github.url": "https://github.com/chamilo/chamilo-lms"
