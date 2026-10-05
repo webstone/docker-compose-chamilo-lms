@@ -82,6 +82,72 @@ services:
     networks:
       - chamilo2_network
 
+  # Browser test stack (Behat + Selenium): docker compose --profile test up -d
+  # chamilo-behat serves the same source tree on PHP 8.3, but with its own
+  # .env, JWT keys, var/ directories and database, so a fresh test install
+  # never touches the development platform.
+  chamilo-behat:
+    profiles: ["test"]
+    build:
+      context: ./chamilo2-php8
+      target: php8_apache_runtime
+      args:
+        - PHP_VERSION=${PHP83_VERSION:-8.3}
+    image: ${PHP83_IMAGE_NAME:-chamilo2-php83:latest}
+    container_name: ${BEHAT_CONTAINER:-chamilo2-behat}
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    volumes:
+      - ${CHAMILO_ROOT_PATH:-./data/chamilo}:/var/www/chamilo
+      - ${BEHAT_DATA_PATH:-./data/behat}/.env:/var/www/chamilo/.env
+      - ${BEHAT_DATA_PATH:-./data/behat}/jwt:/var/www/chamilo/config/jwt
+      # Upstream's default authentication config instead of the OWC one,
+      # which forces OAuth login and hides the username/password form
+      - ${BEHAT_DATA_PATH:-./data/behat}/authentication.yaml:/var/www/chamilo/config/authentication.yaml
+      - ${BEHAT_DATA_PATH:-./data/behat}/var/cache:/var/www/chamilo/var/cache
+      - ${BEHAT_DATA_PATH:-./data/behat}/var/log:/var/www/chamilo/var/log
+      - ${BEHAT_DATA_PATH:-./data/behat}/var/sessions:/var/www/chamilo/var/sessions
+      - ${BEHAT_DATA_PATH:-./data/behat}/var/upload:/var/www/chamilo/var/upload
+      - ${BEHAT_DATA_PATH:-./data/behat}/var/search:/var/www/chamilo/var/search
+    ports:
+      - "${BEHAT_PORT:-8082}:80"
+    environment:
+      # The shared config/authentication.yaml references the OWC OAuth
+      # provider; the test platform does not use it, but the variables must exist
+      OAUTH_LARAVEL_CLIENT_ID: ""
+      OAUTH_LARAVEL_CLIENT_SECRET: ""
+      OAUTH_LARAVEL_AUTHORIZE_URL: ""
+      OAUTH_LARAVEL_TOKEN_URL: ""
+      OAUTH_LARAVEL_USER_URL: ""
+    restart: "no"
+    labels:
+      "project.id": "docker.compose.chamilo2-behat"
+    networks:
+      - chamilo2_network
+
+  selenium:
+    profiles: ["test"]
+    # Pinned to the Selenium 4.1 line upstream's Behat CI uses: Chamilo's
+    # Mink driver (instaclick/php-webdriver 1.4) only sends legacy JSON Wire
+    # desiredCapabilities, which newer Selenium releases no longer translate
+    image: ${SELENIUM_IMAGE:-selenium/standalone-chrome:4.1.3-20220405}
+    container_name: ${SELENIUM_CONTAINER:-chamilo2-selenium}
+    shm_size: 2gb
+    environment:
+      - SE_NODE_MAX_SESSIONS=1
+    # Share chamilo-behat's network namespace: tests/behat/behat.yml expects
+    # Selenium on 127.0.0.1:4444 and the platform on http://localhost, which
+    # then hold for both the Behat runner and the browser without overrides.
+    # The browser runs headless (tests/behat/behat.yml), so no VNC ports are
+    # published
+    network_mode: "service:chamilo-behat"
+    depends_on:
+      - chamilo-behat
+    restart: "no"
+    labels:
+      "project.id": "docker.compose.chamilo2-selenium"
+
 networks:
   chamilo2_network:
     driver: bridge
