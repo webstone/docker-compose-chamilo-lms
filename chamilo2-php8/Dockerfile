@@ -52,6 +52,11 @@ RUN docker-php-ext-install -j$(nproc) \
 RUN pecl install apcu redis && \
     docker-php-ext-enable apcu redis
 
+# Start from PHP's production defaults (display_errors, expose_php,
+# short_open_tag off) plus Chamilo's own recommendations
+RUN cp /usr/local/etc/php/php.ini-production /usr/local/etc/php/php.ini
+COPY files/chamilo-php.ini /usr/local/etc/php/conf.d/chamilo.ini
+
 # Increase PHP memory limit for build / cache
 RUN echo 'memory_limit = 512M' >> /usr/local/etc/php/conf.d/docker-php-memlimit.ini
 
