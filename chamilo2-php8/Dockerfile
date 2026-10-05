@@ -73,7 +73,27 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www
 
-FROM php8_apache_base AS php8_apache_chamilo2
+# Runtime image without a bundled Chamilo checkout: Apache config and
+# entrypoint only, for development setups that bind-mount their own
+# Chamilo source tree onto /var/www/chamilo.
+FROM php8_apache_base AS php8_apache_runtime
+
+RUN a2dissite 000-default && rm -rf /etc/apache2/sites-enabled/000-default.conf
+COPY files/security.conf /etc/apache2/conf-available/
+COPY files/chamilo.conf /etc/apache2/sites-available/chamilo.conf
+RUN a2ensite chamilo && a2enconf security
+
+# Fix permissions on startup (entrypoint script)
+COPY files/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# Left at /var/www (not /var/www/chamilo): the php8_apache_chamilo2 stage
+# below moves the extracted archive to /var/www/chamilo, which must not
+# exist yet.
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+EXPOSE 80
+
+FROM php8_apache_runtime AS php8_apache_chamilo2
 
 ARG CHAMILO_VERSION="2.0.0-RC.1"
 
@@ -98,16 +118,3 @@ RUN chown -R www-data:www-data /var/www/chamilo && \
 
 # Remove unnecessary files
 RUN rm -rf .git* tests docs
-
-# Configure Apache
-RUN a2dissite 000-default && rm -rf /etc/apache2/sites-enabled/000-default.conf
-COPY files/security.conf /etc/apache2/conf-available/
-COPY files/chamilo.conf /etc/apache2/sites-available/chamilo.conf
-RUN a2ensite chamilo && a2enconf security
-
-# Fix permissions on startup (entrypoint script)
-COPY files/entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
-
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-EXPOSE 80
