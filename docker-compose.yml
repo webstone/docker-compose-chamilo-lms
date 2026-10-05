@@ -28,7 +28,7 @@ services:
   chamilo:
     build:
       context: ./chamilo2-php8
-      target: php8_apache_chamilo2
+      target: ${CHAMILO_BUILD_TARGET:-php8_apache_chamilo2}
       args:
         - PHP_VERSION=${PHP_VERSION:-8.2.30}
         - CHAMILO_VERSION=${CHAMILO_VERSION:-2.0.0-RC.1}
