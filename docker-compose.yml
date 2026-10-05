@@ -43,13 +43,41 @@ services:
       - "${CHAMILO_PORT:-8080}:80"
     extra_hosts:
       - "docker.chamilo.net:127.0.0.1"
-    environment:
+    environment: &chamilo_environment
       - APP_ENV=${APP_ENV:-dev}
       - APP_DEBUG=${APP_DEBUG:-1}
       - DATABASE_URL=mysql://${MYSQL_USER:-chamilo2}:${MYSQL_PASSWORD:-chamilo2}@mariadb:3306/${MYSQL_DATABASE:-chamilo2}
     restart: unless-stopped
     labels:
       "project.id": "docker.compose.chamilo2-php8"
+      "project.github.url": "https://github.com/chamilo/chamilo-lms"
+    networks:
+      - chamilo2_network
+
+  # Optional PHP 8.3 runtime on the same source tree and database, for
+  # testing PHP upgrades side by side: docker compose --profile php83 up -d
+  chamilo-php83:
+    profiles: ["php83"]
+    build:
+      context: ./chamilo2-php8
+      target: php8_apache_runtime
+      args:
+        - PHP_VERSION=${PHP83_VERSION:-8.3}
+    image: ${PHP83_IMAGE_NAME:-chamilo2-php83:latest}
+    container_name: ${PHP83_CONTAINER:-chamilo2-php83}
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    volumes:
+      - ${CHAMILO_ROOT_PATH:-./data/chamilo}:/var/www/chamilo
+    ports:
+      - "${PHP83_PORT:-8081}:80"
+    extra_hosts:
+      - "docker.chamilo.net:127.0.0.1"
+    environment: *chamilo_environment
+    restart: unless-stopped
+    labels:
+      "project.id": "docker.compose.chamilo2-php83"
       "project.github.url": "https://github.com/chamilo/chamilo-lms"
     networks:
       - chamilo2_network
